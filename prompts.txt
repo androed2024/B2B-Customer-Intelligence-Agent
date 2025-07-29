@@ -1,11 +1,11 @@
 research_prompt1 = """
 Bitte recherchiere für die Firma {company_name} folgende Informationen:
 
-1. Unternehmensprofil (max. 120 Wörter): Beschreibe das Unternehmen, seine Geschäftsfelder und Kernkompetenzen. Gehe auch auf internationale Aktivitäten ein, falls vorhanden. Ergänze außerdem, welche ethischen Grundsätze das Unternehmen verfolgt und welche CSR- oder Nachhaltigkeitsaktivitäten (z. B. Umwelt, soziale Verantwortung, Lieferkettentransparenz) besonders relevant oder öffentlich bekannt sind.
+1. Unternehmensprofil (max. 500 Wörter): Beschreibe das Unternehmen, seine Geschäftsfelder und Kernkompetenzen. Gehe auch auf internationale Aktivitäten ein, falls vorhanden. Ergänze außerdem, welche ethischen Grundsätze das Unternehmen verfolgt und welche CSR- oder Nachhaltigkeitsaktivitäten (z. B. Umwelt, soziale Verantwortung, Lieferkettentransparenz) besonders relevant oder öffentlich bekannt sind.
 
-2. Marktentwicklung (Vergangenheit – Gegenwart – Zukunft) (max. 100 Wörter): Beschreibe den Markt des Unternehmens im zeitlichen Verlauf (z. B. technologische Trends, Branchenzyklen, neue Wettbewerber, Regulierungen etc.).
+2. Marktentwicklung (Vergangenheit – Gegenwart – Zukunft) (max. 400 Wörter): Beschreibe den Markt des Unternehmens im zeitlichen Verlauf (z. B. technologische Trends, Branchenzyklen, neue Wettbewerber, Regulierungen etc.).
 
-3. Strategische Geschäftslage (Prognose): Einschätzung, ob sich das Geschäft des Unternehmens in den nächsten 2–3 Jahren positiv, neutral oder negativ entwickeln wird – mit kurzer Begründung (1–2 Sätze).
+3. Strategische Geschäftslage (Prognose): Einschätzung, ob sich das Geschäft des Unternehmens in den nächsten 2–3 Jahren positiv, neutral oder negativ entwickeln wird – mit entsprechender Begründung.
 
 4. Kennzahlen-Übersicht:
    Gib die folgenden Finanzkennzahlen als **Markdown-Tabelle** an. Verwende keine ASCII-Grafik und keine Tabellenränder aus Zeichen. Jede Tabelle soll eine klare Kopfzeile haben:
@@ -41,10 +41,10 @@ Bitte recherchiere für die Firma {company_name} folgende Informationen:
 
 research_prompt2 = """
 Du bist Industrieanalyst für Stahl- und Metallverarbeitung. 
-Erstelle eine kompakte Markt- und Produktanalyse für folgendes Industrieprodukt: **{product_description}**.
+Erstelle eine detaillierte Markt- und Produktanalyse für folgendes Industrieprodukt: **{product_description}**.
 
 ### 1. Produkteinsatz
-Nenne die wichtigsten Endprodukte und Branchen, in denen dieses Produkt typischerweise verbaut wird – als Bulletpoints (max. 10).
+Nenne detailliert die wichtigsten Endprodukte und Branchen, in denen dieses Produkt typischerweise verbaut wird – als Bulletpoints (max. 20).
 
 ### 2. Relevante Unternehmen
 Liste die wichtigsten Hersteller oder Anbieter vergleichbarer Produkte. Gib die Daten in der folgenden **Markdown-Tabelle** aus – ohne ASCII-Rahmen, exakt folgende Spalten:
@@ -52,8 +52,8 @@ Liste die wichtigsten Hersteller oder Anbieter vergleichbarer Produkte. Gib die 
 | Unternehmen | Land | Website | Produkt 1 | Produkt 2 | Produkt 3 | Mitarbeiter (akt/vj) | Umsatz (akt/vj) | Gewinn/EBITDA (akt/vj) |
 |-------------|------|---------|-----------|-----------|-----------|----------------------|-----------------|------------------------|
 
-- Füge 5–8 Unternehmen ein, jede in eine Zeile.  
-- Beschreibungen möglichst kompakt (Produkte max. 8 Wörter).  
+- Füge 8–10 Unternehmen ein, jede in eine Zeile.  
+- Beschreibungen möglichst kompakt, aber so detailliert dass ein Analyst die Infos bewerten kann (Produkte max. 15 Wörter).  
 - Finanzzahlen abrunden (z. B. 2,4 Mrd. € oder 700 Mio. USD).  
 - Quellenangabe in der letzten Spalte als „Unternehmensbericht YYYY / Statista“  
 - Keine Umbrüche innerhalb der Zellen!

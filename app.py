@@ -24,7 +24,11 @@ from weasyprint import HTML
 # ------------------ CONFIG ------------------
 load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o")
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
+PERPLEXITY_MODEL = os.getenv("PERPLEXITY_MODEL", "sonar-pro")
+OPENROUTER_RATE = float(os.getenv("OPENROUTER_RATE_PER_1K", "0.005"))
+PERPLEXITY_RATE = float(os.getenv("PERPLEXITY_RATE_PER_1K", "0.01"))
 
 # ---------- Helper to load prompt templates ----------
 
@@ -98,7 +102,7 @@ if start_btn and user_input.strip():
                 "Content-Type": "application/json",
             }
             px_payload = {
-                "model": "sonar-pro",
+                "model": PERPLEXITY_MODEL,
                 "messages": [{"role": "user", "content": full_prompt}],
                 "search_scope": "recent",
                 "search_period": search_period,
@@ -147,7 +151,7 @@ Formatiere den folgenden Text als einheitliches, elegantes Markdown‑Dokument m
                 "Content-Type": "application/json",
             }
             or_payload = {
-                "model": "openai/gpt-4o",
+                "model": OPENROUTER_MODEL,
                 "messages": [
                     {"role": "system", "content": "Formatierungs‑Experte"},
                     {"role": "user", "content": format_prompt},
@@ -164,9 +168,19 @@ Formatiere den folgenden Text als einheitliches, elegantes Markdown‑Dokument m
             or_tokens = or_json.get("usage", {}).get("total_tokens", 0)
 
             # ---- Kosteninfo ----
-            cost_px = round(px_tokens / 1000 * 0.01, 4)
-            cost_or = round(or_tokens / 1000 * 0.005, 4)
-            token_info = f"🔢 Tokens – Perplexity: {px_tokens}, OpenRouter: {or_tokens}\n💸 Kosten: {cost_px + cost_or:.4f} USD"
+            cost_px = round(px_tokens / 1000 * PERPLEXITY_RATE, 4)
+            cost_or = round(or_tokens / 1000 * OPENROUTER_RATE, 4)
+            total_usd = cost_px + cost_or
+            eur_rate = 0.92  # Approx. conversion rate USD → EUR
+            total_eur = round(total_usd * eur_rate, 4)
+            token_info = (
+                "🔢 Tokens\n"
+                f"- Perplexity: {px_tokens}\n"
+                f"- OpenRouter: {or_tokens}\n"
+                f"\n"
+                f"💸 Ges.Kosten:\n"
+                f"- {total_usd:.4f} USD / {total_eur:.4f} EUR"
+            )
 
             # ---- Session speichern ----
             st.session_state.analysis_markdown = analysis_md
