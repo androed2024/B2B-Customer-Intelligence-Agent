@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: b2b-kundenanalyse
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run app.py"
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
