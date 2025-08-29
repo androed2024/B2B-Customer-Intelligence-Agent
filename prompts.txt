@@ -40,27 +40,50 @@ Bitte recherchiere für die Firma {company_name} folgende Informationen:
 """
 
 research_prompt2 = """
-Du bist Industrieanalyst für Stahl- und Metallverarbeitung. 
-Erstelle eine detaillierte Markt- und Produktanalyse für folgendes Industrieprodukt: **{product_description}**.
+Du bist Experte für Strategischen Vertrieb im B2B-Bereich und berätst eine Firma zu neuen Absatz- und Vertriebsmöglichkeiten.
 
-### 1. Produkteinsatz
-Nenne detailliert die wichtigsten Endprodukte und Branchen, in denen dieses Produkt typischerweise verbaut wird – als Bulletpoints (max. 20).
+Für das Produkt der Firma **{product_description}** suchst Du neue Absatzmöglichkeiten. 
+Dazu ist wichtig zu verstehen, welche Unternehmen dieses Produkt **{product_description}** einkaufen und für welche Endprodukte dieses Produkt **{product_description}** benötigen. 
 
-### 2. Relevante Unternehmen
-Liste die wichtigsten Hersteller oder Anbieter vergleichbarer Produkte. Gib die Daten in der folgenden **Markdown-Tabelle** aus – ohne ASCII-Rahmen, exakt folgende Spalten:
+### Ziel:
+- Identifiziere ausschließlich Unternehmen, die dieses Produkt **einkaufen oder in ihre Wertschöpfung integrieren**.
+- **Schließe Wettbewerber aus**, also Unternehmen, die Polygon- oder Profilwellen selbst herstellen.
+- Zeige, für welche Endprodukte diese Unternehmen **{product_description}** typischerweise benötigen. 
+- Falls unsicher, kennzeichne das Unternehmen mit einem Hinweis „möglicherweise Wettbewerber“.
 
-| Unternehmen | Land | Website | Produkt 1 | Produkt 2 | Produkt 3 | Mitarbeiter (akt/vj) | Umsatz (akt/vj) | Gewinn/EBITDA (akt/vj) |
-|-------------|------|---------|-----------|-----------|-----------|----------------------|-----------------|------------------------|
+Erstelle dazu eine Liste und priorisiere die Liste nach Regionen:
+1. Deutschland 
+2. Europa 
+3. USA 
+4. Asien 
+5. Rest der Welt
 
-- Füge 8–10 Unternehmen ein, jede in eine Zeile.  
-- Beschreibungen möglichst kompakt, aber so detailliert dass ein Analyst die Infos bewerten kann (Produkte max. 15 Wörter).  
-- Finanzzahlen abrunden (z. B. 2,4 Mrd. € oder 700 Mio. USD).  
-- Quellenangabe in der letzten Spalte als „Unternehmensbericht YYYY / Statista“  
-- Keine Umbrüche innerhalb der Zellen!
+### Ausgabe:
+Erstelle eine **Markdown-Tabelle** mit der Überschrift:  
+"Folgende Unternehmen sind potenzielle Abnehmer des Produkts **{product_description}** "
+
+Spalten:
+
+| Unternehmen | Sitzland | Branche / Rolle | TOP 3 Produkte (Kurzbeschreibung) | Internetlink | Mitarbeiter (akt/vj) | Umsatz (akt/vj) | Gewinn/Verlust (EBITDA oder Nettogewinn, akt/vj) | Margen (EBITDA-/Nettomarge) | Quelle |
+
+- Füge 10–15 relevante Unternehmen ein, nach obiger Priorität sortiert.  
+- Sitz und Land des Unternehmens
+- Branche / Rolle: z. B. „Abnehmer/Integrator“, „möglicher Wettbewerber (falls unklar)“
+- Produktbeschreibungen in der Spalte „TOP 3 Produkte“ kurz (max. 15 Wörter pro Produkt). 
+- Internetlink zum Unternehmen
+- Mitarbeiteranzahl (aktuell + Vorjahr)
+- Jahresumsatz (aktuell + Vorjahr)
+- Gewinn/Verlust (EBITDA oder Nettogewinn, aktuell + Vorjahr)
+- relevante Margen (EBITDA-Marge, Nettomarge) wenn Informationen dazu vorhanden sind
+- Quellenangabe klar nennen mit Web-Link (z. B. Geschäftsbericht, Statista, Presse)
 
 ### Formatvorgaben:
-- Verwende ausschließlich **Markdown**, keine ASCII-Grafiken.
-- Keine Überschriften oder Kommentare oberhalb der Tabelle.
+- Nutze ausschließlich **Markdown**, keine ASCII-Grafiken.  
+- Keine zusätzlichen Kommentare oberhalb der Tabelle.  
+- Am Ende: Kurze Liste der verwendeten URLs als klickbare Markdown-Links unter „Webseiten-Quellen“.  
+- Gesamtumfang: max. 2 Seiten, sachlich und strukturiert.  
+- Tabellen und Bulletpoints sind ausdrücklich erwünscht.  
+- Keine Umbrüche innerhalb der Tabellenzellen!
+- Alle Finanzkennzahlen bitte gerundet (z. B. 1,2 Mrd. € oder 800 Mio. USD)
 - Sprache: Deutsch.
-- Am Ende: Liste der verwendeten URLs als klickbare Markdown-Links unter „Webseiten-Quellen“.
 """

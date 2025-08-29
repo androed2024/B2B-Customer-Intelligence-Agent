@@ -45,6 +45,20 @@ def load_prompts():
 
 prompts = load_prompts()
 
+# ---------- SESSION STATE INITIALIZATION ----------
+if "analysis_markdown" not in st.session_state:
+    st.session_state.analysis_markdown = ""
+    st.session_state.token_info = ""
+    st.session_state.analysis_title = ""
+    st.session_state.analysis_running = False
+    st.session_state.analysis_cancelled = False
+    st.session_state.cancel_message = ""
+    st.session_state.current_user_input = ""
+    st.session_state.current_prompt_choice = ""
+    st.session_state.current_search_period = "all"
+    st.session_state.last_prompt_choice = ""
+    st.session_state.last_period_label = ""
+
 # ---------- UI SETUP ----------
 st.set_page_config(page_title="B2B Firmenanalyse", layout="wide")
 st.title("🔍 B2B Kundenanalyse Generator")
@@ -56,6 +70,11 @@ period_options = {
     "Letztes Jahr": "year",
     "Alle Zeiträume": "all",
 }
+
+# Show waiting message directly under the title when analysis is running
+if st.session_state.analysis_running:
+    st.markdown("### ⏳ Bitte warten... Analyse dauert einige Minuten")
+    st.info("Sie können die Analyse jederzeit mit dem Stoppen-Button abbrechen.")
 
 with st.sidebar:
     prompt_choice = st.selectbox(
@@ -69,70 +88,119 @@ with st.sidebar:
     )
     search_period = period_options[period_label]
 
+    # Clear results when user changes analysis type or time period
+    if "last_prompt_choice" not in st.session_state:
+        st.session_state.last_prompt_choice = prompt_choice
+        st.session_state.last_period_label = period_label
+    
+    # Check if user changed the selection
+    if (st.session_state.last_prompt_choice != prompt_choice or 
+        st.session_state.last_period_label != period_label):
+        # Clear previous results
+        st.session_state.analysis_markdown = ""
+        st.session_state.token_info = ""
+        st.session_state.analysis_title = ""
+        st.session_state.analysis_running = False
+        st.session_state.analysis_cancelled = False
+        st.session_state.cancel_message = ""
+        # Update stored values
+        st.session_state.last_prompt_choice = prompt_choice
+        st.session_state.last_period_label = period_label
+
     if prompt_choice == "Firmenanalyse":
-        user_input = st.text_input("Unternehmensname", "Knorr Bremse", key="company")
+        user_input = st.text_input("Unternehmensname", key="company")
     else:
         user_input = st.text_input(
             "Produktbeschreibung",
-            value="Polygon Profil P3 C der Innen‑Abmessung 36,85 mm (Nennmaß) in der Güte MnCrS5",
             key="product",
         )
 
     start_btn = st.button("🚀 Analyse starten")
+    
+    # Cancel button (always visible, but only functional when analysis is running)
+    cancel_btn = st.button("⏹️ Analyse stoppen", type="secondary", disabled=not st.session_state.analysis_running)
+    if cancel_btn and st.session_state.analysis_running:
+        st.session_state.analysis_cancelled = True
+        st.session_state.analysis_running = False
+        st.session_state.cancel_message = "Analyse gestoppt"
 
-# ---------- SESSION STATE ----------
-if "analysis_markdown" not in st.session_state:
+# ---------- HANDLE ANALYSIS START ----------
+if start_btn and user_input.strip():
+    # Clear previous results and reset cancellation state
     st.session_state.analysis_markdown = ""
     st.session_state.token_info = ""
     st.session_state.analysis_title = ""
+    st.session_state.analysis_cancelled = False
+    st.session_state.analysis_running = True
+    st.session_state.cancel_message = ""
+    st.session_state.current_user_input = user_input
+    st.session_state.current_prompt_choice = prompt_choice
+    st.session_state.current_search_period = search_period
+    
+    # Just set the state and rerun - don't show anything here to avoid conflicts
+    st.rerun()
 
 # ---------- RUN ANALYSIS ----------
-if start_btn and user_input.strip():
-    with st.spinner("Analysiere …"):
-        try:
-            # Build the research prompt
-            prompt_template = prompts[prompt_choice]
-            full_prompt = prompt_template.format(
-                company_name=user_input, product_description=user_input
-            )
+if st.session_state.analysis_running and not st.session_state.analysis_cancelled:
+    try:
+        # Build the research prompt
+        prompt_template = prompts[st.session_state.current_prompt_choice]
+        full_prompt = prompt_template.format(
+            company_name=st.session_state.current_user_input, product_description=st.session_state.current_user_input
+        )
 
-            # ---- Perplexity (Recherche) ----
-            px_headers = {
-                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                "Content-Type": "application/json",
-            }
-            px_payload = {
-                "model": PERPLEXITY_MODEL,
-                "messages": [{"role": "user", "content": full_prompt}],
-                "search_scope": "recent",
-                "search_period": search_period,
-            }
-            px_resp = requests.post(
-                "https://api.perplexity.ai/chat/completions",
-                headers=px_headers,
-                json=px_payload,
-            )
-            px_resp.raise_for_status()
-            px_json = px_resp.json()
-            raw_text = px_json["choices"][0]["message"]["content"].strip()
-            px_tokens = px_json.get("usage", {}).get("total_tokens", 0)
+        # Check for cancellation before starting Perplexity API call
+        if st.session_state.analysis_cancelled:
+            st.session_state.analysis_running = False
+            st.rerun()
+            
+        # ---- Perplexity (Recherche) ----
+        px_headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        px_payload = {
+            "model": PERPLEXITY_MODEL,
+            "messages": [{"role": "user", "content": full_prompt}],
+            "search_scope": "recent",
+            "search_period": st.session_state.current_search_period,
+        }
+        px_resp = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=px_headers,
+            json=px_payload,
+        )
+        px_resp.raise_for_status()
+        px_json = px_resp.json()
+        raw_text = px_json["choices"][0]["message"]["content"].strip()
+        px_tokens = px_json.get("usage", {}).get("total_tokens", 0)
+        
+        # Check for cancellation after Perplexity API call
+        if st.session_state.analysis_cancelled:
+            st.session_state.analysis_running = False
+            st.rerun()
 
-            # ---- Zitat‑URLs anhängen ----
-            citations = px_json.get("citations", None)
-            if isinstance(citations, list):
-                links = [
-                    c.get("url")
-                    for c in citations
-                    if isinstance(c, dict) and c.get("url")
-                ]
-                if links:
-                    raw_text = raw_text.replace("\u001b", "").replace("\x1b", "")
-                    raw_text += "\n\n### Webseiten-Quellen:\n" + "\n".join(
-                        f"- [{u}]({u})" for u in links
-                    )
+        # ---- Zitat‑URLs anhängen ----
+        citations = px_json.get("citations", None)
+        if isinstance(citations, list):
+            links = [
+                c.get("url")
+                for c in citations
+                if isinstance(c, dict) and c.get("url")
+            ]
+            if links:
+                raw_text = raw_text.replace("\u001b", "").replace("\x1b", "")
+                raw_text += "\n\n### Webseiten-Quellen:\n" + "\n".join(
+                    f"- [{u}]({u})" for u in links
+                )
 
-            # ---- GPT‑4o (Formatierung) ----
-            format_prompt = f"""
+        # Check for cancellation before OpenRouter API call
+        if st.session_state.analysis_cancelled:
+            st.session_state.analysis_running = False
+            st.rerun()
+            
+        # ---- GPT‑4o (Formatierung) ----
+        format_prompt = f"""
 Du bist ein erfahrener Redakteur und Markdown‑Profi.
 
 ### Aufgabe:
@@ -146,52 +214,65 @@ Formatiere den folgenden Text als einheitliches, elegantes Markdown‑Dokument m
 ---
 {raw_text}
 """
-            or_headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            }
-            or_payload = {
-                "model": OPENROUTER_MODEL,
-                "messages": [
-                    {"role": "system", "content": "Formatierungs‑Experte"},
-                    {"role": "user", "content": format_prompt},
-                ],
-            }
-            or_resp = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=or_headers,
-                json=or_payload,
-            )
-            or_resp.raise_for_status()
-            or_json = or_resp.json()
-            analysis_md = or_json["choices"][0]["message"]["content"].strip()
-            or_tokens = or_json.get("usage", {}).get("total_tokens", 0)
+        or_headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        or_payload = {
+            "model": OPENROUTER_MODEL,
+            "messages": [
+                {"role": "system", "content": "Formatierungs‑Experte"},
+                {"role": "user", "content": format_prompt},
+            ],
+        }
+        or_resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=or_headers,
+            json=or_payload,
+        )
+        or_resp.raise_for_status()
+        or_json = or_resp.json()
+        analysis_md = or_json["choices"][0]["message"]["content"].strip()
+        or_tokens = or_json.get("usage", {}).get("total_tokens", 0)
 
-            # ---- Kosteninfo ----
-            cost_px = round(px_tokens / 1000 * PERPLEXITY_RATE, 4)
-            cost_or = round(or_tokens / 1000 * OPENROUTER_RATE, 4)
-            total_usd = cost_px + cost_or
-            eur_rate = 0.92  # Approx. conversion rate USD → EUR
-            total_eur = round(total_usd * eur_rate, 4)
-            token_info = (
-                "🔢 Tokens\n"
-                f"- Perplexity: {px_tokens}\n"
-                f"- OpenRouter: {or_tokens}\n"
-                f"\n"
-                f"💸 Ges.Kosten:\n"
-                f"- {total_usd:.4f} USD / {total_eur:.4f} EUR"
-            )
+        # ---- Kosteninfo ----
+        cost_px = round(px_tokens / 1000 * PERPLEXITY_RATE, 4)
+        cost_or = round(or_tokens / 1000 * OPENROUTER_RATE, 4)
+        total_usd = cost_px + cost_or
+        eur_rate = 0.92  # Approx. conversion rate USD → EUR
+        total_eur = round(total_usd * eur_rate, 4)
+        token_info = (
+            "🔢 Tokens\n"
+            f"- Perplexity: {px_tokens}\n"
+            f"- OpenRouter: {or_tokens}\n"
+            f"\n"
+            f"💸 Ges.Kosten:\n"
+            f"- {total_usd:.4f} USD / {total_eur:.4f} EUR"
+        )
 
-            # ---- Session speichern ----
-            st.session_state.analysis_markdown = analysis_md
-            st.session_state.token_info = token_info
-            st.session_state.analysis_title = user_input
+        # ---- Session speichern ----
+        st.session_state.analysis_markdown = analysis_md
+        st.session_state.token_info = token_info
+        st.session_state.analysis_title = st.session_state.current_user_input
+        
+        # Analysis completed successfully
+        st.session_state.analysis_running = False
 
-        except Exception as e:
+    except Exception as e:
+        st.session_state.analysis_running = False
+        if not st.session_state.analysis_cancelled:
             st.error(f"Analyse fehlgeschlagen: {e}")
+        else:
+            st.session_state.cancel_message = "Analyse gestoppt"
 
 # ---------- DISPLAY RESULTS ----------
-if st.session_state.analysis_markdown:
+# Show cancellation message if analysis was stopped
+if st.session_state.cancel_message:
+    st.warning(st.session_state.cancel_message)
+    st.session_state.cancel_message = ""  # Clear the message after showing
+
+# Show results only when analysis is not running
+if st.session_state.analysis_markdown and not st.session_state.analysis_running:
     st.markdown("---")
     st.markdown(f"### Analyse für: {st.session_state.analysis_title}")
     st.markdown(st.session_state.analysis_markdown, unsafe_allow_html=True)
