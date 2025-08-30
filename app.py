@@ -299,6 +299,7 @@ def load_prompts():
     return {
         "Firmenanalyse": namespace.get("research_prompt1", ""),
         "Absatzprofil": namespace.get("research_prompt2", ""),
+        "Lieferantensuche": namespace.get("research_prompt3", ""),
     }
 
 
@@ -336,10 +337,14 @@ st.markdown(
     gap: 20px;
 }
 .stTabs [data-baseweb="tab"] {
-    font-size: 30px !important;
-    font-weight: 700 !important;
-    padding: 20px 40px !important;
-    min-height: 75px !important;
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    padding: 25px 50px !important;
+    min-height: 85px !important;
+}
+.stTabs [data-baseweb="tab"] span {
+    font-size: 36px !important;
+    font-weight: 800 !important;
 }
 </style>
 """,
@@ -399,7 +404,9 @@ with tab1:
 
     with col1:
         prompt_choice = st.selectbox(
-            "Analyse-Typ", ["Firmenanalyse", "Absatzprofil"], key="prompt_choice"
+            "Analyse-Typ",
+            ["Firmenanalyse", "Absatzprofil", "Lieferantensuche"],
+            key="prompt_choice"
         )
 
     with col2:
@@ -419,8 +426,11 @@ with tab1:
     # Input field based on analysis type
     if prompt_choice == "Firmenanalyse":
         user_input = st.text_input("Unternehmensname", key="company")
-    else:
+    elif prompt_choice == "Absatzprofil":
         user_input = st.text_input("Produktbeschreibung", key="product")
+    elif prompt_choice == "Lieferantensuche":
+        # Label wie gewünscht beibehalten
+        user_input = st.text_input("Beschreibung Einkaufsbedarf", key="sourcing_description")
 
     # Buttons side by side
     col_btn1, col_btn2 = st.columns(2)
@@ -510,14 +520,17 @@ with tab1:
         try:
             prompts = load_prompts()
 
-            if st.session_state.current_prompt_choice == "Firmenanalyse":
-                perplexity_prompt = prompts["Firmenanalyse"].format(
-                    company_name=st.session_state.current_user_input
-                )
+            choice = st.session_state.current_prompt_choice
+            inp = st.session_state.current_user_input
+
+            if choice == "Firmenanalyse":
+                perplexity_prompt = prompts["Firmenanalyse"].format(company_name=inp)
+            elif choice == "Absatzprofil":
+                perplexity_prompt = prompts["Absatzprofil"].format(product_description=inp)
+            elif choice == "Lieferantensuche":
+                perplexity_prompt = prompts["Lieferantensuche"].format(sourcing_description=inp)
             else:
-                perplexity_prompt = prompts["Absatzprofil"].format(
-                    product_description=st.session_state.current_user_input
-                )
+                raise ValueError(f"Unbekannter Analyse-Typ: {choice}")
 
             if st.session_state.analysis_cancelled:
                 st.session_state.analysis_running = False
