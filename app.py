@@ -5,35 +5,15 @@ import sqlite3
 import pandas as pd
 import base64
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv(".env", usecwd=True), override=True)
+
 import yaml
 import streamlit_authenticator as stauth
 
-try:
-    import markdown  # python-markdown (supports tables with 'tables' extension)
-
-    # Try to import linkify extension for auto-linking plain URLs
-    try:
-        import markdown_linkify
-
-        linkify_available = True
-    except ImportError:
-        linkify_available = False
-
-    def md_to_html(md_text: str) -> str:
-        extensions = ["extra", "tables", "sane_lists"]
-        if linkify_available:
-            extensions.append("linkify")
-        return markdown.markdown(md_text, extensions=extensions, output_format="html5")
-
-except ModuleNotFoundError:
-    # Fallback to markdown2 (ensure it's in requirements.txt) – supports tables via 'tables' extra
-    import markdown2
-
-    def md_to_html(md_text: str) -> str:
-        return markdown2.markdown(
-            md_text, extras=["tables", "fenced-code-blocks", "autolink"]
-        )
+# ---------- PAGE CONFIG ----------
+st.set_page_config(page_title="B2B KI-Research & Analyse", layout="wide")
 
 
 from weasyprint import HTML
@@ -46,18 +26,138 @@ PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 PERPLEXITY_MODEL = os.getenv("PERPLEXITY_MODEL", "sonar-pro")
 OPENROUTER_RATE = float(os.getenv("OPENROUTER_RATE_PER_1K", "0.005"))
 PERPLEXITY_RATE = float(os.getenv("PERPLEXITY_RATE_PER_1K", "0.01"))
-AUTH_YAML_RAW = os.getenv("AUTH_CONFIG_YAML", "")
-if not AUTH_YAML_RAW:
-    auth_path = os.getenv("AUTH_CONFIG_PATH")
-    if auth_path and os.path.exists(auth_path):
-        with open(auth_path, "r", encoding="utf-8") as f:
-            AUTH_YAML_RAW = f.read()
+APP_VERSION = os.getenv("VERSION")
 
-if not AUTH_YAML_RAW:
-    st.error("Auth-Config fehlt (AUTH_CONFIG_YAML/ AUTH_CONFIG_PATH).")
+
+# ---------- AUTH CONFIG LOADING ----------
+def load_auth_config():
+    raw = os.getenv("AUTH_CONFIG_YAML", "")
+    if not raw:
+        path = os.getenv("AUTH_CONFIG_PATH", "auth.yaml")
+        if not os.path.exists(path):
+            return None
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read()
+    try:
+        cfg = yaml.safe_load(raw)
+        assert isinstance(cfg, dict), "YAML root must be a mapping"
+        assert (
+            "credentials" in cfg and "usernames" in cfg["credentials"]
+        ), "Missing credentials.usernames"
+        assert "cookie" in cfg and all(
+            k in cfg["cookie"] for k in ["name", "key", "expiry_days"]
+        ), "Missing cookie.*"
+        return cfg
+    except Exception as e:
+        st.error(f"Auth-Config fehlerhaft: {e}")
+        return None
+
+
+config = load_auth_config()
+if not config:
+    st.error("Auth-Config fehlt oder ist ungültig. Zugriff gesperrt.")
     st.stop()
 
-config = yaml.safe_load(AUTH_YAML_RAW)
+# ---------- AUTHENTICATION ----------
+import bcrypt
+
+# Initialize session state for auth
+if "authentication_status" not in st.session_state:
+    st.session_state.authentication_status = None
+    st.session_state.username = None
+    st.session_state.name = None
+
+# Check if user is already logged in
+if st.session_state.authentication_status != True:
+    st.markdown("### 🔐 B2B KI-Research & Analyse - Login")
+
+    with st.form("login_form_yaml"):
+        username_input = st.text_input("Benutzername")
+        password_input = st.text_input("Passwort", type="password")
+        login_submitted = st.form_submit_button("Anmelden")
+
+        if login_submitted and username_input and password_input:
+            # Get user data from config
+            users = config["credentials"]["usernames"]
+
+            if username_input in users:
+                stored_password = users[username_input]["password"]
+
+                # Verify bcrypt password
+                if bcrypt.checkpw(
+                    password_input.encode("utf-8"), stored_password.encode("utf-8")
+                ):
+                    st.session_state.authentication_status = True
+                    st.session_state.username = username_input
+                    st.session_state.name = users[username_input].get(
+                        "name", username_input
+                    )
+                    st.session_state["current_username"] = username_input
+                    st.success("Login erfolgreich!")
+                    st.rerun()
+                else:
+                    st.error("Ungültiger Benutzername oder Passwort.")
+            else:
+                st.error("Ungültiger Benutzername oder Passwort.")
+
+    st.stop()
+
+# User is logged in
+username = st.session_state.username
+name = st.session_state.name
+
+# --- Rate Limiting ---
+import time
+
+ALLOWED_WINDOW = 300  # 5 Minuten
+MAX_RUNS = 3  # max. 3 Analysen pro 5 Min.
+
+
+try:
+    import markdown
+
+    # Try to import linkify extension for auto-linking plain URLs
+    try:
+        import markdown_linkify
+
+        linkify_available = True
+    except ImportError:
+        linkify_available = False
+
+    def md_to_html(md_text: str) -> str:
+        exts = ["extra", "tables", "sane_lists"]
+        if linkify_available:
+            exts.append("linkify")
+        # Auto-link bare URLs via pymdown-extensions if available
+        try:
+            import pymdownx  # noqa: F401  # only to confirm it's installed
+
+            exts.append("pymdownx.magiclink")
+        except Exception:
+            pass
+        return markdown.markdown(md_text, extensions=exts, output_format="html5")
+
+except ModuleNotFoundError:
+    # Fallback to markdown2 (ensure it's in requirements.txt) – supports tables via 'tables' extra
+    import markdown2
+
+    def md_to_html(md_text: str) -> str:
+        return markdown2.markdown(
+            md_text, extras=["tables", "fenced-code-blocks", "autolink"]
+        )
+
+
+def can_run(user):
+    now = time.time()
+    runs = st.session_state.get("runs", {}).get(user, [])
+    runs = [t for t in runs if now - t < ALLOWED_WINDOW]
+    if len(runs) >= MAX_RUNS:
+        wait = int(ALLOWED_WINDOW - (now - runs[0]))
+        return False, wait
+    runs.append(now)
+    st.session_state.setdefault("runs", {})[user] = runs
+    return True, 0
+
 
 # ---------- Database Functions ----------
 
@@ -222,7 +322,7 @@ if "analysis_markdown" not in st.session_state:
     st.session_state.last_period_label = ""
 
 # ---------- UI SETUP ----------
-st.set_page_config(page_title="B2B KI-Research & Analyse", layout="wide")
+
 
 # Reduce top padding with custom CSS and enlarge tabs
 st.markdown(
@@ -231,27 +331,32 @@ st.markdown(
 .block-container {
     padding-top: 3rem;
 }
-/* Make tabs larger */
+/* Make tabs much larger - same size as buttons */
 .stTabs [data-baseweb="tab-list"] {
     gap: 20px;
 }
 .stTabs [data-baseweb="tab"] {
-    font-size: 18px;
-    font-weight: 600;
-    padding: 12px 24px;
+    font-size: 30px !important;
+    font-weight: 700 !important;
+    padding: 20px 40px !important;
+    min-height: 75px !important;
 }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Header with title left, stats center/right, and version right
+# Header with title + version left, stats center, user/logout right
 total_tokens, total_cost = get_total_stats()
+version = os.getenv("VERSION", "1.0")
 
-col1, col2, col3 = st.columns([3, 2, 1])
+col1, col2, col3 = st.columns([4, 3, 2])
 
 with col1:
-    st.markdown("### 🔍 B2B KI-Research & Analyse")
+    st.markdown(
+        f"### 🔍 B2B KI-Research & Analyse     <span style='font-size: 14px; color: #666;'>Version: {APP_VERSION}</span>",
+        unsafe_allow_html=True,
+    )
 
 with col2:
     if total_tokens > 0 or total_cost > 0:
@@ -262,7 +367,20 @@ with col2:
 
 with col3:
     st.markdown("")  # Empty line for spacing
-    st.markdown("*Version: 1.1*")
+    # Show username and logout button side by side
+    username = st.session_state.get("username", "User")
+    col_user, col_logout = st.columns([1, 1])
+    with col_user:
+        st.markdown(f"👤 {username}")
+    with col_logout:
+        if st.button("🔒 Logout", key="logout_btn", help="Ausloggen", use_container_width=True):
+            # Clear authentication state
+            st.session_state.authentication_status = None
+            st.session_state.username = None
+            st.session_state.name = None
+            st.session_state["current_username"] = None
+            st.success("Erfolgreich ausgeloggt!")
+            st.rerun()
 
 period_options = {
     "Letzter Tag": "day",
@@ -369,6 +487,12 @@ with tab1:
 
     # ---------- HANDLE ANALYSIS START ----------
     if start_btn and user_input.strip():
+        # Rate limiting check
+        ok, wait = can_run(st.session_state.get("current_username", "anon"))
+        if not ok:
+            st.warning(f"Rate-Limit erreicht. Bitte in {wait}s erneut versuchen.")
+            st.stop()
+
         # Clear previous results and reset cancellation state
         st.session_state.analysis_markdown = ""
         st.session_state.token_info = ""

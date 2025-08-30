@@ -1,16 +1,16 @@
 credentials:
   usernames:
-    alice:
-      email: alice@example.com
-      name: Alice Example
-      password: "$2b$12$q9lQrca8vS2V0J3eT2H2uO2mA7d3PNkqvNfVt.3w3r3MZyX2i1yU."
-    bob:
-      email: bob@example.com
-      name: Bob Example
-      password: "$2b$12$7I8d4f5vu5Y6U7d8Q0yY5u7Zq5p/0f3N6o7m8n9o0pQaRbScTdUe"
+    admin:
+      email: admin@example.com
+      name: AAdministrator
+      password: "$2b$12$92k//C4wdRo8Dka4xQd6q.4Zb2kN0mDAI1FRNfCrwlb8jkR8.OL.i"  # alice123
+    kai:
+      email: kai@example.com
+      name: Kai Example
+      password: "$2b$12$lpD/MfZ84OsjGdicIZGcq.jpSDaAmSpFEwkGKgBf4pzEp4uTmST9S"  # bob123
 cookie:
   name: "b2b-cia-auth"
-  key: "SUPER_GEHEIMES_LANGES_RANDOM_SECRET"
+  key: "SUPER_GEHEIMES_LANGES_RANDOM_SECRET_HIER_EINSETZEN"
   expiry_days: 7
 preauthorized:
   emails: []

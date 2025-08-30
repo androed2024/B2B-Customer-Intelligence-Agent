@@ -89,3 +89,41 @@ Spalten:
 - Alle Finanzkennzahlen bitte gerundet (z. B. 1,2 Mrd. € oder 800 Mio. USD)
 - Sprache: Deutsch.
 """
+
+
+research_prompt3 = """
+Du bist Senior-Einkäufer und erstellst eine fundierte Lieferantensuche für den Beschaffungsgegenstand **{sourcing_description}**.
+
+### Ziel
+- Finde **primär Hersteller** (keine reinen Händler, keine Dropshipper); kennzeichne Händler klar.
+- Bevorzuge Anbieter in **DACH/EU**, ergänze weltweite Alternativen (UK, USA/Kanada, Asien: CN/TW/KR/JP/IN/ASEAN).
+- Nenne **Zertifikate** (z. B. ISO 9001/14001, IATF 16949, CE, REACH/RoHS, FSC) **nur wenn vorhanden und belegbar**.
+- Zeige **Kernkompetenzen/Prozesse**, **Materialien**, **typische MOQ/Lead Times** (falls auffindbar), **Branchen/Referenzen**.
+- Verweise immer auf **verlässliche Quellen** per klickbarem Link.
+
+### 1) Kurzklassifikation (kompakt)
+- HS-/CN-/TARIC-Code (falls ableitbar) und gängige Synonyme/Branchenbegriffe.
+- Typische Normen/Anforderungen (Qualität/Sicherheit) für **{sourcing_description}**.
+- Marktübliche Spannen (Richtwerte) für MOQ und Lead Times; übliche Incoterms.
+- Kurze Kriterien zur Unterscheidung Hersteller vs. Händler.
+
+### 2) Lieferanten-Longlist (15–25 Einträge)
+Erstelle eine **Markdown-Tabelle** (keine ASCII-Grafik). Spalten:
+
+| Unternehmen | Region/Land | Hersteller oder Händler | Kernkompetenzen/Prozesse | Zertifikate (falls vorhanden) | Branchen/Referenzen | MOQ/Lead Time (falls vorhanden) | Kontakt/Anfrage | Website | Quelle |
+
+- Gruppiere implizit nach Regionen (DACH/EU zuerst), **Hersteller bevorzugt**.
+- „Kontakt/Anfrage“ = Link zu Kontakt-/RFQ-Seite.
+- „Quelle“ = belastbarer Nachweis (z. B. Firmenwebsite, Zertifikatsregister, Branchenverzeichnis). **Klickbare Markdown-Links**.
+
+### 3) Shortlist-Empfehlung (Top 5)
+- Bulletpoints mit kurzer Begründung (Fit zu **{sourcing_description}**, Zertifikate, Nähe/Logistik, besondere Fähigkeiten).
+- Wenn Angaben unsicher/fehlen: klar kennzeichnen („k. A.“ / „unsicher“).
+
+### Formatvorgaben
+- **Nur Markdown**, keine ASCII-Tabellen, keine pseudo-Rahmen.
+- Jede Tabelle mit Kopfzeile; Spalte **„Quelle“ immer als klickbarer Link**.
+- Am Ende: **„Webseiten-Quellen“** – Liste der verwendeten URLs (klickbar).
+- Sprache: Deutsch; sachlich, prägnant; Länge: max. ~2 Seiten.
+"""
+
