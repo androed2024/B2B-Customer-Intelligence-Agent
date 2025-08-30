@@ -47,6 +47,16 @@ PERPLEXITY_MODEL = os.getenv("PERPLEXITY_MODEL", "sonar-pro")
 OPENROUTER_RATE = float(os.getenv("OPENROUTER_RATE_PER_1K", "0.005"))
 PERPLEXITY_RATE = float(os.getenv("PERPLEXITY_RATE_PER_1K", "0.01"))
 AUTH_YAML_RAW = os.getenv("AUTH_CONFIG_YAML", "")
+if not AUTH_YAML_RAW:
+    auth_path = os.getenv("AUTH_CONFIG_PATH")
+    if auth_path and os.path.exists(auth_path):
+        with open(auth_path, "r", encoding="utf-8") as f:
+            AUTH_YAML_RAW = f.read()
+
+if not AUTH_YAML_RAW:
+    st.error("Auth-Config fehlt (AUTH_CONFIG_YAML/ AUTH_CONFIG_PATH).")
+    st.stop()
+
 config = yaml.safe_load(AUTH_YAML_RAW)
 
 # ---------- Database Functions ----------
