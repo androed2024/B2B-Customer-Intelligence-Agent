@@ -6,6 +6,9 @@ import pandas as pd
 import base64
 from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
+import markdown
+import markdown2
+
 
 load_dotenv(find_dotenv(".env", usecwd=True), override=True)
 
@@ -378,7 +381,9 @@ with col3:
     with col_user:
         st.markdown(f"👤 {username}")
     with col_logout:
-        if st.button("🔒 Logout", key="logout_btn", help="Ausloggen", use_container_width=True):
+        if st.button(
+            "🔒 Logout", key="logout_btn", help="Ausloggen", use_container_width=True
+        ):
             # Clear authentication state
             st.session_state.authentication_status = None
             st.session_state.username = None
@@ -406,7 +411,7 @@ with tab1:
         prompt_choice = st.selectbox(
             "Analyse-Typ",
             ["Firmenanalyse", "Absatzprofil", "Lieferantensuche"],
-            key="prompt_choice"
+            key="prompt_choice",
         )
 
     with col2:
@@ -430,7 +435,9 @@ with tab1:
         user_input = st.text_input("Produktbeschreibung", key="product")
     elif prompt_choice == "Lieferantensuche":
         # Label wie gewünscht beibehalten
-        user_input = st.text_input("Beschreibung Einkaufsbedarf", key="sourcing_description")
+        user_input = st.text_input(
+            "Beschreibung Einkaufsbedarf", key="sourcing_description"
+        )
 
     # Buttons side by side
     col_btn1, col_btn2 = st.columns(2)
@@ -526,9 +533,13 @@ with tab1:
             if choice == "Firmenanalyse":
                 perplexity_prompt = prompts["Firmenanalyse"].format(company_name=inp)
             elif choice == "Absatzprofil":
-                perplexity_prompt = prompts["Absatzprofil"].format(product_description=inp)
+                perplexity_prompt = prompts["Absatzprofil"].format(
+                    product_description=inp
+                )
             elif choice == "Lieferantensuche":
-                perplexity_prompt = prompts["Lieferantensuche"].format(sourcing_description=inp)
+                perplexity_prompt = prompts["Lieferantensuche"].format(
+                    sourcing_description=inp
+                )
             else:
                 raise ValueError(f"Unbekannter Analyse-Typ: {choice}")
 
