@@ -1,4 +1,4 @@
-import os
+import os, base64, json, yaml, re
 import requests
 import streamlit as st
 import sqlite3
@@ -8,6 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 import markdown
 import markdown2
+import yaml
 
 
 load_dotenv(find_dotenv(".env", usecwd=True), override=True)
@@ -33,6 +34,32 @@ APP_VERSION = os.getenv("VERSION")
 
 
 # ---------- AUTH CONFIG LOADING ----------
+def _maybe_unescape_newlines(s: str) -> str:
+    # Wenn keine echten NLs enthalten sind, aber \n-Seq., dann ent-escapen
+    if "\n" not in s and "\\n" in s:
+        return s.replace("\\n", "\n")
+    return s
+
+
+def _maybe_strip_quotes(s: str) -> str:
+    # Entfernt umschließende einfache/ doppelte Quotes (Render/CI legen das manchmal so ab)
+    if (s.startswith('"') and s.endswith('"')) or (
+        s.startswith("'") and s.endswith("'")
+    ):
+        return s[1:-1]
+    return s
+
+
+def _maybe_b64_decode(s: str) -> str:
+    # Heuristik: Base64? (nur gültige Base64-Zeichen und Länge mehrfach von 4)
+    if re.fullmatch(r"[A-Za-z0-9+/=\s]+", s) and len(s.strip()) % 4 == 0:
+        try:
+            return base64.b64decode(s).decode("utf-8")
+        except Exception:
+            pass
+    return s
+
+
 def load_auth_config():
     raw = os.getenv("AUTH_CONFIG_YAML", "")
     if not raw:
@@ -41,16 +68,39 @@ def load_auth_config():
             return None
         with open(path, "r", encoding="utf-8") as f:
             raw = f.read()
+
+    # Robustheit für Render/Secrets
+    raw = _maybe_strip_quotes(raw)
+    raw = _maybe_unescape_newlines(raw)
+    raw = _maybe_b64_decode(raw)
+
     try:
-        cfg = yaml.safe_load(raw)
-        assert isinstance(cfg, dict), "YAML root must be a mapping"
-        assert (
-            "credentials" in cfg and "usernames" in cfg["credentials"]
-        ), "Missing credentials.usernames"
-        assert "cookie" in cfg and all(
-            k in cfg["cookie"] for k in ["name", "key", "expiry_days"]
-        ), "Missing cookie.*"
+        # YAML oder JSON erlauben
+        cfg = (
+            yaml.safe_load(raw) if not raw.strip().startswith("{") else json.loads(raw)
+        )
+
+        if not isinstance(cfg, dict):
+            raise ValueError("YAML root must be a mapping (dict)")
+
+        # Minimal-Schema prüfen
+        cred = cfg.get("credentials")
+        if not isinstance(cred, dict) or "usernames" not in cred:
+            raise ValueError("Missing credentials.usernames")
+
+        cookie = cfg.get("cookie")
+        if not isinstance(cookie, dict) or not all(
+            k in cookie for k in ("name", "key", "expiry_days")
+        ):
+            raise ValueError("Missing cookie.name/key/expiry_days")
+
         return cfg
+
+    except yaml.YAMLError as e:
+        # Parser-Fehler schön ausgeben + ersten Zeilen zeigen
+        preview = "\n".join(raw.splitlines()[:5])
+        st.error(f"Auth-Config YAML-Fehler: {e}\nVorschau:\n{preview}")
+        return None
     except Exception as e:
         st.error(f"Auth-Config fehlerhaft: {e}")
         return None
@@ -60,6 +110,7 @@ config = load_auth_config()
 if not config:
     st.error("Auth-Config fehlt oder ist ungültig. Zugriff gesperrt.")
     st.stop()
+
 
 # ---------- AUTHENTICATION ----------
 import bcrypt
